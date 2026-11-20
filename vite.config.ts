@@ -6,6 +6,14 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 import viteReact from "@vitejs/plugin-react";
 
+const nitroPreset =
+  process.env["NITRO_PRESET"] ||
+  (process.env["WORKERS_CI"]
+    ? "cloudflare_module"
+    : process.env["CF_PAGES"]
+      ? "cloudflare_pages"
+      : "node-server");
+
 export default defineConfig({
   plugins: [
     tailwindcss(),
@@ -21,7 +29,12 @@ export default defineConfig({
       server: { entry: "server" },
     }),
     nitro({
-      preset: process.env["NITRO_PRESET"] ?? "node-server",
+      preset: nitroPreset,
+      compatibilityDate: "2024-09-19",
+      cloudflare: {
+        deployConfig: true,
+        nodeCompat: true,
+      },
     }),
     viteReact(),
   ],

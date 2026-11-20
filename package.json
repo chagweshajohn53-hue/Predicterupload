@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env ./node_modules/.bin/vite dev --host 0.0.0.0 --port 3000",
     "build": "vite build",
+    "build:cloudflare": "NITRO_PRESET=cloudflare_module vite build",
     "build:dev": "vite build --mode development",
     "start": "HOST=0.0.0.0 PORT=3000 node --env-file-if-exists=.env .output/server/index.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 3000",

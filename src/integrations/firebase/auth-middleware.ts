@@ -111,6 +111,16 @@ async function verifyWithWebCrypto(token: string): Promise<VerifiedToken> {
 }
 
 async function verifyFirebaseToken(token: string): Promise<VerifiedToken> {
+  const isCloudflareWorker =
+    typeof navigator !== "undefined" && /Cloudflare-Workers/i.test(navigator.userAgent);
+  if (
+    isCloudflareWorker ||
+    (!process.env["GOOGLE_APPLICATION_CREDENTIALS"] &&
+      !process.env["FIREBASE_CONFIG"] &&
+      !process.env["K_SERVICE"])
+  ) {
+    return verifyWithWebCrypto(token);
+  }
   try {
     const { getApp, getApps, initializeApp } = await import("firebase-admin/app");
     const { getAuth } = await import("firebase-admin/auth");

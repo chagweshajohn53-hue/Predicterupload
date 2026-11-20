@@ -38,15 +38,22 @@ export const Route = createFileRoute("/api/public/relay")({
         }
         const method = (request.headers.get("x-fwd-method") ?? "POST").toUpperCase();
         const headers = new Headers();
+        headers.set("user-agent", "FailoverRelay/1.0");
         const auth = request.headers.get("x-fwd-authorization");
         if (auth) headers.set("authorization", auth);
         const ct = request.headers.get("content-type");
-        if (ct && method !== "GET") headers.set("content-type", ct);
+        if (ct && method !== "GET" && method !== "HEAD") headers.set("content-type", ct);
         if (url.hostname === "openrouter.ai") headers.set("x-title", "Failover Relay");
-        const body = method === "GET" ? null : await request.arrayBuffer();
         let upstream: Response;
         try {
-          upstream = await fetch(url, { method, headers, body, signal: request.signal, redirect: "manual" });
+          const init: RequestInit = {
+            method,
+            headers,
+            signal: request.signal,
+            redirect: "manual",
+            ...(method === "GET" || method === "HEAD" ? {} : { body: await request.arrayBuffer() }),
+          };
+          upstream = await fetch(url, init);
         } catch (e) {
           return json({ error: `Upstream unreachable: ${String(e)}` }, 502);
         }
