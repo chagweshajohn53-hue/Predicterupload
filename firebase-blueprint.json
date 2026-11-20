@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "Vault": {
+      "title": "User Vault",
+      "description": "User provider API keys, personal relay token, and failover router chain configuration.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner Firebase Auth UID."
+        },
+        "keys": {
+          "type": "object",
+          "description": "Provider API key map (groq, gemini, openrouter, cfAccount, cfToken, apiToken, zep, optional anthropic, optional extra list)."
+        },
+        "chain": {
+          "type": "array",
+          "description": "Ordered failover model chain entries."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server-validated creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server-validated last update timestamp."
+        }
+      },
+      "required": ["userId", "keys", "chain", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/vaults/{userId}": {
+      "schema": { "$ref": "#/entities/Vault" },
+      "description": "Private per-user failover relay vault document."
+    }
+  }
+}

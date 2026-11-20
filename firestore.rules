@@ -1,0 +1,103 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.uid == userId;
+    }
+
+    function isBoundedStr(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    function isValidKeys(k) {
+      return k is map
+        && k.keys().hasAll(['groq', 'gemini', 'openrouter', 'cfAccount', 'cfToken', 'apiToken', 'zep'])
+        && k.keys().hasOnly(['groq', 'gemini', 'openrouter', 'cfAccount', 'cfToken', 'apiToken', 'zep', 'anthropic', 'extra'])
+        && isBoundedStr(k.groq, 512)
+        && isBoundedStr(k.gemini, 512)
+        && isBoundedStr(k.openrouter, 512)
+        && isBoundedStr(k.cfAccount, 512)
+        && isBoundedStr(k.cfToken, 512)
+        && isBoundedStr(k.apiToken, 512)
+        && isBoundedStr(k.zep, 512)
+        && (!('anthropic' in k) || isBoundedStr(k.anthropic, 512))
+        && (!('extra' in k) || (k.extra is list && k.extra.size() <= 10 && (k.extra.size() == 0 || extraFirstValid(k.extra))));
+    }
+
+    function extraFirstValid(extra) {
+      return extra[0] is map
+        && extra[0].keys().hasOnly(['groq', 'gemini', 'openrouter', 'cfAccount', 'cfToken']);
+    }
+
+    function isValidChain(c) {
+      return c is list
+        && c.size() <= 50
+        && (
+          c.size() == 0
+          || (
+            c[0] is map
+            && c[0].keys().hasAll(['id', 'provider', 'model', 'enabled'])
+            && c[0].keys().hasOnly(['id', 'provider', 'model', 'enabled'])
+            && c[0].id is string && c[0].id.size() >= 1 && c[0].id.size() <= 64
+            && c[0].provider in ['groq', 'gemini', 'openrouter', 'cloudflare']
+            && c[0].model is string && c[0].model.size() >= 1 && c[0].model.size() <= 200
+            && c[0].enabled is bool
+          )
+        );
+    }
+
+    function isValidVault(data, userId) {
+      return data.keys().hasAll(['userId', 'keys', 'chain', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'keys', 'chain', 'createdAt', 'updatedAt'])
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.userId == userId
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && isValidKeys(data.keys)
+        && isValidChain(data.chain);
+    }
+
+    match /vaults/{userId} {
+      allow get: if isValidId(userId) && isVerifiedOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isVerifiedOwner(userId)
+        && isValidVault(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isVerifiedOwner(userId)
+        && isValidVault(incoming(), userId)
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['keys', 'chain', 'updatedAt']);
+      allow delete: if isValidId(userId) && isVerifiedOwner(userId);
+    }
+  }
+}
