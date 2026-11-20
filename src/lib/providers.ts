@@ -52,6 +52,14 @@ export async function testProvider(p: ProviderId, k: Keys): Promise<string> {
   const { url, auth } = map[p];
   const res = await relay(url, { auth, method: "GET" });
   if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 160)}`);
+  const ct = (res.headers.get("content-type") ?? "").toLowerCase();
+  if (!ct.includes("application/json")) {
+    throw new Error("Server relay (/api/public/relay) returned non-JSON response — check that the SSR server is active");
+  }
+  const data = (await res.json().catch(() => null)) as { error?: { message?: string }; success?: boolean } | null;
+  if (!data || data.error || data.success === false) {
+    throw new Error(data?.error?.message ?? "Malformed provider JSON response");
+  }
   return "Connected";
 }
 

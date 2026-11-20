@@ -171,6 +171,9 @@ export async function runChat(opts: {
     const ct = (res.headers.get("content-type") ?? "").toLowerCase();
 
     try {
+      if (ct.includes("text/html")) {
+        throw new Error("Server relay (/api/public/relay) returned HTML instead of API stream — ensure server runtime is active");
+      }
       // Handle providers that reply with non-streaming JSON even when stream=true
       if (ct.includes("application/json") && !ct.includes("text/event-stream")) {
         const j = (await res.json()) as StreamChunk;
